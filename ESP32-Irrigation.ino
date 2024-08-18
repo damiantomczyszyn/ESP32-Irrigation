@@ -22,7 +22,7 @@ unsigned long previousTime = 0;
 const long timeoutTime = 2000;
 
 //Wathering
-unsigned long watheringTime = millis() + 1000 * 60;
+const unsigned long startupTime = millis() + 1000 * 60;
 const unsigned int quantitySprinklers = 5;
 short Sprinklers [quantitySprinklers];// od 1
 bool watheringIsStarted = 0; 
@@ -30,6 +30,12 @@ unsigned long  watheringTimeOn= millis(); // czas podlewania dla danego zaworu
 int podlewany=0;//zmienna informująca który zawór jest aktualnie podlewany
 const int watherOFF = 0;
 const int watherON = 1;
+const int GODZINA = 3;
+unsigned long czasCzekania;
+constexpr unsigned long watheringStartupTime = 22*1000*60*60;//godzina 22 w ms
+unsigned long setupTime=0;
+unsigned long watheringTime=1000*60*15;
+unsigned long CZASPODLEWANIA = quantitySprinklers * watheringTime;
 
 //TimeServer
 unsigned short czas[3] = {0,0,0};
@@ -39,6 +45,7 @@ String dateAndTime=" ";//date and time init
 
 
 //functions
+String getTime();
 bool Rained()//check is wet
 {
   return pcf8575.digitalRead(0);// jeśli trzeba będzie odwrotnie dodaj not (!)
@@ -46,11 +53,12 @@ bool Rained()//check is wet
 
 bool isWatheringTime()
 {
-if(millis() >= watheringTime){
-watheringTime = millis() + 1000 * 60 * 60 * 23;
-return true;
+if(czasCzekania<=millis())//jeśli już czas to sprawdź czy odpalić test na podlewanie
+{
+ getTime();//aktualizuj date i czas
+ czasCzekania=24*1000*60*60 + millis() - CZASPODLEWANIA;
+ return true;
 }
-
 return false;
 }
 
@@ -61,7 +69,7 @@ bool WatheringStart()// czy czas na rozpoczęcie podlewania + czy nie jest mokry
   return Rained() * isWatheringTime();
 }
 
-void Wathering(unsigned long watheringTime=1000*60*15)//15min default
+void Wathering()//15min default
 {
   watheringIsStarted=1;
   unsigned long now = millis();
@@ -142,6 +150,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", utcOffsetInSeconds);
 
 
 void setup() {
+  Serial.begin(115200);
   //expander
   pcf8575.begin();
     for(int i=1;i<16;i++){
@@ -161,7 +170,7 @@ void setup() {
 
 
 //OTA
-  Serial.begin(115200);
+  
   Serial.println("Booting");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -225,6 +234,26 @@ void setup() {
   //OTA
 
   server.begin();//Server
+
+  if (MDNS.begin("esp8266")) { 
+    Serial.println("MDNS responder started"); 
+    }
+  getTime();// zapisz czas
+ 
+ 
+  //wylicz ile trzeba poczekać do godziny 21 (zobacz czy sie spieszy godzine czy późni)
+  setupTime = czas[0] *60*60*1000 + czas[1] *60*1000 + czas[2] *1000;// w ms
+  //godzina 22 w ms to -> 79 200 000
+  if(setupTime>watheringStartupTime)// jest już po czasie
+  {
+    czasCzekania = 86400000 - (setupTime-watheringStartupTime)+millis(); // odjąć czas nadwyżki od 24h w ms
+  }
+  else//jest przed czasem
+  {
+    czasCzekania=watheringStartupTime-setupTime+millis(); //dodanie milis startowo aby potem odejmować od aktualnego milis i porównać wartości
+  }
+
+  //Time
 }
 
 void loop() {
@@ -333,9 +362,6 @@ WiFiClient client = server.available();
 if(WatheringStart() || watheringIsStarted){
   Wathering();
 }
-
-
-
 }
 
 
