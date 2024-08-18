@@ -2,11 +2,27 @@
 #include <ESPmDNS.h>
 #include <NetworkUdp.h>
 #include <ArduinoOTA.h>
+#include <PCF8575.h> //https://github.com/xreef/PCF8575_library/archive/master.zip
+#include <Wire.h>
+
 
 const char *ssid = "";
 const char *password = "";
+PCF8575 pcf8575(0x20, 22,23);
+
+
 
 void setup() {
+  //expander
+  pcf8575.begin();
+    for(int i=1;i<16;i++){
+    pcf8575.pinMode(i, OUTPUT);
+  }
+  pcf8575.pinMode(0, INPUT);
+
+    for(int i=0;i<16;i++){
+    pcf8575.pinMode(i, OUTPUT);//All low
+  }
 
 
 //OTA
