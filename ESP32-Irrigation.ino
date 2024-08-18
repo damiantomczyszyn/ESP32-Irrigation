@@ -79,14 +79,17 @@ void Wathering()//15min default
     {
     podlewany=0;//resetujemy na pierwszy zawór
     watheringIsStarted=false; // wylaczamy flage podlewania
-    digitalWrite(Sprinklers[podlewany], watherOFF);//włączenie podlewania zaworu
+   // digitalWrite(Sprinklers[podlewany], watherOFF);//włączenie podlewania zaworu
+    pcf8575.digitalWrite(Sprinklers[podlewany], watherOFF);//włączenie podlewania zaworu
     return ;
   }
     podlewany++;//zaczynamy od inkrementu by było na 0 - czyli pierwszy elemeenty tablicy
-    digitalWrite(Sprinklers[podlewany], watherON);//włączenie podlewania zaworu
+    //digitalWrite(Sprinklers[podlewany], watherON);//włączenie podlewania zaworu
+    pcf8575.digitalWrite(Sprinklers[podlewany], watherON);
     if(podlewany==1)// jeśli pierwszy to nie wyłączamy poprzedniego
     return ;
-    digitalWrite(Sprinklers[podlewany-1], watherOFF);
+    //digitalWrite(Sprinklers[podlewany-1], watherOFF);
+    pcf8575.digitalWrite(Sprinklers[podlewany-1], watherOFF);
     
 
 }
