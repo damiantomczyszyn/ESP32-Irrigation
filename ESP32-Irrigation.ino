@@ -20,6 +20,8 @@ unsigned long currentTime = millis();
 unsigned long previousTime = 0; 
 const long timeoutTime = 2000;
 
+//Wathering
+unsigned long watheringTime = millis() + 1000 * 60;
 
 void setup() {
   //expander
@@ -27,7 +29,7 @@ void setup() {
     for(int i=1;i<16;i++){
     pcf8575.pinMode(i, OUTPUT);
   }
-  pcf8575.pinMode(0, INPUT);
+  pcf8575.pinMode(0, INPUT);//expander pin 0 for wather sensor
 
     for(int i=0;i<16;i++){
     pcf8575.pinMode(i, OUTPUT);//All low
@@ -211,3 +213,31 @@ WiFiClient client = server.available();
 
 
 }
+
+void Wathering(unsigned long watheringTime=1000*60*15)//15min default
+{
+  
+  unsigned long watheringTimeStart = millis();
+  unsigned long watheringTimeStartSprinkler = millis() + watheringTime;
+
+
+
+}
+
+bool Rained()//check is wet
+{
+  return pcf8575.digitalRead(0);
+}
+bool isWatheringTime()
+{
+if(millis() >= watheringTime)
+return true;
+
+return false;
+}
+
+bool WatheringStart()
+{
+  return Rained() * isWatheringTime();
+}
+
