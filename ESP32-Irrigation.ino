@@ -4,7 +4,8 @@
 #include <ArduinoOTA.h>
 #include <PCF8575.h> //https://github.com/xreef/PCF8575_library/archive/master.zip
 #include <Wire.h>
-
+#include <NTPClient.h>
+//#include <TimeLib.h>
 
 const char *ssid = "";
 const char *password = "";
@@ -22,6 +23,123 @@ const long timeoutTime = 2000;
 
 //Wathering
 unsigned long watheringTime = millis() + 1000 * 60;
+const unsigned int quantitySprinklers = 5;
+short Sprinklers [quantitySprinklers];// od 1
+bool watheringIsStarted = 0; 
+unsigned long  watheringTimeOn= millis(); // czas podlewania dla danego zaworu
+int podlewany=0;//zmienna informująca który zawór jest aktualnie podlewany
+const int watherOFF = 0;
+const int watherON = 1;
+
+//TimeServer
+unsigned short czas[3] = {0,0,0};
+String dateAndTime=" ";//date and time init
+
+
+
+
+//functions
+bool Rained()//check is wet
+{
+  return pcf8575.digitalRead(0);// jeśli trzeba będzie odwrotnie dodaj not (!)
+}
+
+bool isWatheringTime()
+{
+if(millis() >= watheringTime){
+watheringTime = millis() + 1000 * 60 * 60 * 23;
+return true;
+}
+
+return false;
+}
+
+
+
+bool WatheringStart()// czy czas na rozpoczęcie podlewania + czy nie jest mokry czujnik 
+{
+  return Rained() * isWatheringTime();
+}
+
+void Wathering(unsigned long watheringTime=1000*60*15)//15min default
+{
+  watheringIsStarted=1;
+  unsigned long now = millis();
+  if(now - watheringTimeOn > watheringTime)
+  {
+  if(podlewany==quantitySprinklers)//sprawdzam czy to jest ostatni zawor
+    {
+    podlewany=0;//resetujemy na pierwszy zawór
+    watheringIsStarted=false; // wylaczamy flage podlewania
+    digitalWrite(Sprinklers[podlewany], watherOFF);//włączenie podlewania zaworu
+    return ;
+  }
+    podlewany++;//zaczynamy od inkrementu by było na 0 - czyli pierwszy elemeenty tablicy
+    digitalWrite(Sprinklers[podlewany], watherON);//włączenie podlewania zaworu
+    if(podlewany==1)// jeśli pierwszy to nie wyłączamy poprzedniego
+    return ;
+    digitalWrite(Sprinklers[podlewany-1], watherOFF);
+    
+
+}
+}
+
+
+
+
+
+String getTime(){
+const long utcOffsetInSeconds = 3600;
+
+String daysOfTheWeek[7] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", utcOffsetInSeconds);
+
+
+  while ( WiFi.status() != WL_CONNECTED ) {
+    delay ( 500 );
+  }
+  timeClient.begin();
+  timeClient.update();
+
+
+
+  //Serial.println(timeClient.getFormattedTime());
+  Serial.println(timeClient.getEpochTime());
+  Serial.println(timeClient.getDay());
+  
+  // Konwersja epoch time na strukturę czasu
+  struct tm *timeinfo;
+  time_t epoch_time = timeClient.getEpochTime();
+  timeinfo = localtime(&epoch_time);
+  // Uzyskanie formatowanej daty i czasu
+  char buffer[20];
+  strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);// mogę sobie uciąć samą datę bez godziny do dziennego API
+  Serial.println("Obecna data: " + String(buffer));
+  dateAndTime = buffer;
+
+  // Uzyskanie daty dnia następnego
+  timeinfo->tm_mday += 1;
+  mktime(timeinfo);
+  strftime(buffer, sizeof(buffer), "%Y-%m-%d", timeinfo);
+  Serial.println("Data dnia następnego: " + String(buffer));
+  //jutro = String(buffer);
+
+  // Uzyskanie daty dnia poprzedniego
+  timeinfo->tm_mday -= 2; // Odejmujemy 2, aby uzyskać datę dnia poprzedniego
+  mktime(timeinfo);
+  strftime(buffer, sizeof(buffer), "%Y-%m-%d", timeinfo);
+  Serial.println("Data dnia poprzedniego: " + String(buffer));
+ // wczoraj = String(buffer);
+  czas[0]=timeClient.getHours();
+  czas[1]=timeClient.getMinutes();
+  czas[2]=timeClient.getSeconds();
+  return (String)timeClient.getFormattedTime();
+
+}
+
 
 void setup() {
   //expander
@@ -211,33 +329,13 @@ WiFiClient client = server.available();
 
 
 
-
+//Wathering
+if(WatheringStart() || watheringIsStarted){
+  Wathering();
 }
-
-void Wathering(unsigned long watheringTime=1000*60*15)//15min default
-{
-  
-  unsigned long watheringTimeStart = millis();
-  unsigned long watheringTimeStartSprinkler = millis() + watheringTime;
 
 
 
 }
 
-bool Rained()//check is wet
-{
-  return pcf8575.digitalRead(0);
-}
-bool isWatheringTime()
-{
-if(millis() >= watheringTime)
-return true;
-
-return false;
-}
-
-bool WatheringStart()
-{
-  return Rained() * isWatheringTime();
-}
 
